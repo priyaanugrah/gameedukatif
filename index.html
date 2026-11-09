@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Keluarga Molekul - Game Edukasi IPAS</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --color-bg: #e0f2fe;
+            --color-house: #ffedd5;
+            --color-house-border: #fdba74;
+            --color-outside: #f0f9ff;
+            --color-drop: #38bdf8;
+            --color-drop-dark: #0284c7;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            touch-action: none; /* Prevent scroll while dragging */
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        h1, h2, h3, h4, .font-title {
+            font-family: 'Baloo 2', cursive;
+        }
+
+        /* Grid Setup */
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            gap: 4px;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            max-width: 500px; /* Dikembalikan ke 500px */
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .grid-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 10;
+        }
+
+        .grid-cell.highlight {
+            transform: scale(1.05);
+            z-index: 20;
+        }
+        
+        .cell-house.highlight {
+            background-color: rgba(253, 230, 138, 0.9);
+            border-color: #fbbf24;
+        }
+        
+        .cell-outside.highlight {
+            background-color: rgba(186, 230, 253, 0.9);
+            border-color: #38bdf8;
+        }
+
+        /* Hover responsif untuk mouse */
+        .cell-outside:empty:hover {
+            background-color: rgba(186, 230, 253, 0.8);
+            border-color: #38bdf8;
+            cursor: pointer;
+        }
+        .cell-house:empty:hover {
+            background-color: rgba(255, 237, 213, 0.9);
+            border-color: #fb923c;
+            cursor: pointer;
+        }
+
+        /* House Area */
+        .cell-house {
+            background-color: rgba(255, 255, 255, 0.4);
+            border: 2px dashed rgba(251, 146, 60, 0.6);
+            border-radius: 12px;
+        }
+        
+        /* Outside Area (Clouds/Bubbles) */
+        .cell-outside {
+            background-color: rgba(240, 249, 255, 0.6);
+            border: 2px dashed rgba(125, 211, 252, 0.8);
+            border-radius: 50%;
+            margin: 4px;
+        }
+
+        /* Character Styles */
+        .character {
+            width: 80%;
+            height: 80%;
+            cursor: grab;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+            transition: transform 0.1s;
+            z-index: 20;
+            touch-action: none;
+        }
+
+        .character:active {
+            cursor: grabbing;
+            transform: scale(1.1);
+        }
+
+        .character.dragging {
+            position: fixed;
+            pointer-events: none; /* Let pointer events pass through to cells below */
+            transform: scale(1.2);
+            z-index: 1000;
+            opacity: 0.9;
+        }
+
+        /* Highlight all available cells when dragging or selecting */
+        body.is-interacting .cell-outside:empty {
+            border: 2px dashed #0ea5e9;
+            background-color: rgba(186, 230, 253, 0.9);
+        }
+        
+        body.is-interacting .cell-house:empty {
+            border: 2px dashed #ea580c;
+            background-color: rgba(255, 237, 213, 0.9);
+        }
+
+        /* Particles and Effects */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 50;
+            border-radius: 50%;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes freeze {
+            0% { filter: brightness(1) drop-shadow(0 4px 6px rgba(0,0,0,0.2)); transform: scale(1); }
+            50% { filter: brightness(1.5) drop-shadow(0 0 15px #7dd3fc); transform: scale(1.05); }
+            100% { filter: brightness(1.2) drop-shadow(0 0 10px #38bdf8); transform: scale(1); }
+        }
+        
+        @keyframes splashDown {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(40px) scale(0.5); opacity: 0; }
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 0.8; }
+            100% { transform: translateY(-100px) scale(2); opacity: 0; }
+        }
+
+        @keyframes snowFall {
+            0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(60px) rotate(360deg); opacity: 0; }
+        }
+
+        @keyframes jiggle {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .state-solid .character {
+            animation: freeze 1s forwards, jiggle 0.5s infinite alternate; /* Partikel padat bergetar */
+        }
+        .state-liquid .character {
+            animation: float 2s infinite ease-in-out; /* Partikel cair bergeser halus */
+        }
+        .state-gas .character {
+            animation: float 1s infinite ease-in-out alternate-reverse; /* Partikel gas bergerak lebih liar */
+        }
+
+        /* Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+
+        /* Custom Scrollbar for info panel */
+        .info-scroll::-webkit-scrollbar { width: 6px; }
+        .info-scroll::-webkit-scrollbar-track { background: transparent; }
+        .info-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+        /* Responsive Layout specific fixes */
+        @media (max-width: 1024px) {
+            #main-container { flex-direction: column !important; }
+            #panels-container { width: 100% !important; margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;}
+            .game-grid { max-width: 400px; max-height: 400px; } /* Dikembalikan ke 400px */
+        }
+        @media (max-width: 640px) {
+            #panels-container { grid-template-columns: 1fr; gap: 0.5rem; }
+            .game-grid { max-width: 100%; gap: 2px; }
+            h1 { font-size: 1.5rem !important; }
+            .character { width: 90%; height: 90%; }
+        }
+        @media (max-height: 700px) and (orientation: landscape) {
+            #main-container { flex-direction: row !important; }
+            #panels-container { width: 40% !important; display: flex; flex-direction: column; }
+            .game-grid { max-width: 60vh; }
+            header { padding: 0.5rem !important; }
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(5px);
+        }
+        
+        .pulse-btn {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 flex flex-col h-screen w-screen">
+
+    <!-- Audio Permission Start Screen (Mandatory for Web Audio API) -->
+    <div id="start-screen" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-6 text-center bg-sky-100" style="background-image: url('https://i.imgur.com/tvdpaaM.png'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+        <!-- Overlay untuk memastikan panel tetap terbaca dengan jelas -->
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-0"></div>
+        
+        <div class="bg-white/95 backdrop-blur-md p-8 rounded-3xl shadow-2xl max-w-sm w-full flex flex-col items-center border-4 border-white/50 relative z-10">
+            <h1 class="text-4xl md:text-5xl font-title text-sky-600 mb-8 drop-shadow-sm">Keluarga Molekul</h1>
+
+            <button id="btn-start-game" class="pulse-btn w-full bg-gradient-to-r from-sky-400 to-blue-500 hover:from-sky-500 hover:to-blue-600 text-white font-title text-3xl py-4 rounded-2xl shadow-[0_6px_0_#0284c7] hover:shadow-[0_2px_0_#0284c7] hover:translate-y-1 transition-all">
+                Mulai
+            </button>
+            
+            <div class="mt-8 w-full border-t border-slate-200 pt-4">
+                <p class="text-sm text-slate-500 font-medium mb-1">Pembuat :</p>
+                <p class="font-bold text-xl text-sky-700">Priya Anugrah Mulia</p>
+            </div>
+            
+            <p class="mt-6 text-xs text-slate-400 bg-slate-50 py-2 px-4 rounded-full border border-slate-100">Pastikan volume perangkat menyala 🔊</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="w-full bg-white/60 backdrop-blur-md px-4 py-3 flex justify-between items-center shadow-sm z-40 relative flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-sky-400 rounded-xl flex items-center justify-center text-white shadow-inner shadow-sky-300">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+            </div>
+            <div>
+                <h1 class="text-2xl md:text-3xl font-title text-sky-700 leading-none">Keluarga Molekul</h1>
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Simulasi IPAS Kelas 4</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button id="btn-dev" class="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition" aria-label="Developer Info">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            </button>
+            <button id="btn-audio" class="p-2 rounded-full bg-sky-100 hover:bg-sky-200 text-sky-600 transition" aria-label="Toggle Audio">
+                <svg id="icon-audio-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                <svg id="icon-audio-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+            </button>
+            <button id="btn-fullscreen" class="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition" aria-label="Fullscreen">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Area -->
+    <main class="flex-1 flex flex-row overflow-hidden p-4 md:p-6 gap-6 w-full max-w-7xl mx-auto" id="main-container">
+        
+        <!-- Simulation Board -->
+        <section class="flex-1 flex flex-col items-center justify-center relative min-h-0">
+            <!-- Grid Container -->
+            <div id="grid-container" class="game-grid">
+                <!-- Generated by JS -->
+            </div>
+            
+            <div class="mt-4 text-center">
+                <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/60 text-sm font-semibold text-slate-600 shadow-sm backdrop-blur-sm border border-white">
+                    <span class="w-3 h-3 rounded-md border border-orange-400 bg-orange-100"></span> Dalam Rumah
+                    <span class="w-3 h-3 rounded-full border border-sky-400 bg-sky-100 ml-3"></span> Luar Rumah (Udara)
+                </span>
+            </div>
+        </section>
+
+        <!-- Sidebar Panels -->
+        <section id="panels-container" class="w-80 flex flex-col gap-4 overflow-y-auto pb-4 info-scroll flex-shrink-0">
+            
+            <!-- Family Roster Panel -->
+            <div class="glass-panel rounded-2xl p-4">
+                <h2 class="font-title text-xl text-slate-700 mb-3 flex justify-between items-center">
+                    Keluarga Molekul Air
+                    <button id="btn-help" class="text-sky-500 hover:text-sky-600">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </button>
+                </h2>
+                <!-- Roster slot where characters spawn/reset -->
+                <div id="roster" class="flex justify-between items-center bg-slate-100/50 p-3 rounded-xl border border-slate-200 min-h-[80px]">
+                    <!-- Characters generated by JS -->
+                </div>
+                <p class="text-xs text-center mt-2 text-slate-500 font-medium">Seret (drag) atau ketuk molekul ke area simulasi.</p>
+            </div>
+
+            <!-- State Info Panel -->
+            <div id="info-panel" class="glass-panel rounded-2xl p-5 flex-1 flex flex-col transition-all duration-500 bg-white">
+                <div class="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100">
+                    <div id="state-icon" class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl shadow-inner transition-colors duration-500">
+                        🤔
+                    </div>
+                    <div>
+                        <h3 class="text-xs uppercase font-bold tracking-widest text-slate-400">Status Wujud</h3>
+                        <h2 id="state-title" class="font-title text-xl text-slate-700 font-bold">Menunggu...</h2>
+                    </div>
+                </div>
+                <div id="state-desc" class="text-sm text-slate-600 leading-relaxed overflow-y-auto pr-2 info-scroll flex-1">
+                    Susun Ayah, Ibu, Kakak, dan Adik di area simulasi!<br><br>
+                    - <b>Padat (Es)</b>: Di dalam rumah, saling menempel.<br>
+                    - <b>Cair (Air)</b>: Di dalam rumah, terpisah.<br>
+                    - <b>Gas (Uap)</b>: Di luar rumah, terpisah.
+                </div>
+            </div>
+
+            <!-- Controls Panel -->
+            <div class="flex gap-3 mt-auto">
+                <button id="btn-reset" class="flex-1 bg-rose-100 hover:bg-rose-200 text-rose-600 font-bold py-3 px-4 rounded-xl transition shadow-sm border border-rose-200 flex items-center justify-center gap-2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    Ulangi
+                </button>
+                <button id="btn-random" class="flex-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-600 font-bold py-3 px-4 rounded-xl transition shadow-sm border border-emerald-200 flex items-center justify-center gap-2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+                    Acak
+                </button>
+            </div>
+            
+        </section>
+    </main>
+
+    <!-- Developer Modal -->
+    <div id="dev-modal" class="fixed inset-0 z-[1000] modal-overlay flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl transform scale-95 transition-transform duration-300">
+            <div class="w-16 h-16 bg-sky-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">👨‍💻</div>
+            <h3 class="font-title text-2xl text-center text-slate-800 mb-2">Tentang Pengembang</h3>
+            <div class="text-center bg-slate-50 rounded-xl p-4 border border-slate-100 mb-6">
+                <p class="text-sm text-slate-500 mb-1">Dibuat dengan ❤️ oleh</p>
+                <p class="font-bold text-lg text-sky-600">Priya Anugrah Mulia</p>
+            </div>
+            <p class="text-xs text-slate-400 text-center mb-6">Game Edukasi Interaktif IPAS Kelas 4 SD - Simulasi Perubahan Wujud Zat Air.</p>
+            <button class="btn-close-modal w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition">
+                Tutup
+            </button>
+        </div>
+    </div>
+
+    <!-- Tutorial/Help Modal -->
+    <div id="help-modal" class="fixed inset-0 z-[1000] modal-overlay flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto info-scroll">
+            <h3 class="font-title text-2xl text-sky-600 mb-4 border-b pb-2">Cara Bermain 🎮</h3>
+            
+            <div class="space-y-4 text-sm text-slate-600">
+                <p>Bantu Keluarga Molekul (Ayah, Ibu, Kakak, Adik) membentuk wujud benda!</p>
+                
+                <div class="bg-sky-50 p-3 rounded-xl border border-sky-100">
+                    <h4 class="font-bold text-sky-700 mb-1 flex items-center gap-2">🧊 Membentuk Es (Zat Padat)</h4>
+                    <p>Pindahkan ke-4 anggota keluarga ke <b>dalam rumah</b>, pastikan mereka <b>saling bersentuhan/berdekatan</b> (atas, bawah, kiri, atau kanan).</p>
+                </div>
+                
+                <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                    <h4 class="font-bold text-blue-700 mb-1 flex items-center gap-2">💧 Membentuk Air (Zat Cair)</h4>
+                    <p>Pindahkan ke-4 anggota keluarga ke <b>dalam rumah</b>, tapi biarkan mereka <b>terpisah</b> (jangan mengelompok jadi satu).</p>
+                </div>
+                
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <h4 class="font-bold text-slate-700 mb-1 flex items-center gap-2">☁️ Membentuk Uap (Zat Gas)</h4>
+                    <p>Pindahkan ke-4 anggota keluarga ke <b>luar rumah</b>, dan pastikan mereka menyebar <b>saling berjauhan</b>.</p>
+                </div>
+
+                <p class="text-xs bg-amber-50 p-2 rounded-lg text-amber-700 border border-amber-200">
+                    * Ingat: Setiap kotak hanya bisa diisi 1 molekul. Gunakan mouse untuk <i>drag & drop</i>, atau sentuh molekul lalu sentuh kotak tujuan (di layar sentuh).
+                </p>
+            </div>
+
+            <button class="btn-close-modal w-full mt-6 bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-sky-200">
+                Mengerti!
+            </button>
+        </div>
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        /** 
+         * ==========================================
+         * ASSETS & SVGs (Inline generation)
+         * ==========================================
+         */
+        const characterSVGs = {
+            'dad': `<img src="https://i.imgur.com/2Ec6cGD.png" alt="Ayah" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none;" onerror="this.src='https://placehold.co/100x100/0ea5e9/white?text=Ayah'"/>`,
+            'mom': `<img src="https://i.imgur.com/jMK71Fq.png" alt="Ibu" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none;" onerror="this.src='https://placehold.co/100x100/f43f5e/white?text=Ibu'"/>`,
+            'boy': `<img src="https://i.imgur.com/tlLNGpt.png" alt="Kakak" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none;" onerror="this.src='https://placehold.co/100x100/38bdf8/white?text=Kakak'"/>`,
+            'girl': `<img src="https://i.imgur.com/0Bom12I.png" alt="Adik" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none;" onerror="this.src='https://placehold.co/100x100/d946ef/white?text=Adik'"/>`
+        };
+
+        const charsDef = [
+            { id: 'dad', svg: characterSVGs.dad, name: 'Ayah' },
+            { id: 'mom', svg: characterSVGs.mom, name: 'Ibu' },
+            { id: 'boy', svg: characterSVGs.boy, name: 'Kakak' },
+            { id: 'girl', svg: characterSVGs.girl, name: 'Adik' }
+        ];
+
+        /**
+         * ==========================================
+         * AUDIO SYSTEM (Web Audio API)
+         * ==========================================
+         */
+        class AudioSystem {
+            constructor() {
+                this.ctx = null;
+                this.bgmOsc = null;
+                this.bgmGain = null;
+                this.isPlayingBGM = false;
+                this.isMuted = false;
+                this.bgmInterval = null;
+            }
+
+            init() {
+                if (this.ctx) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+            }
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                if (this.isMuted) {
+                    if (this.bgmGain) {
+                        this.bgmGain.gain.setValueAtTime(this.bgmGain.gain.value, this.ctx.currentTime);
+                        this.bgmGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1);
+                    }
+                    document.getElementById('icon-audio-on').classList.add('hidden');
+                    document.getElementById('icon-audio-off').classList.remove('hidden');
+                } else {
+                    if (this.bgmGain) {
+                        this.bgmGain.gain.setValueAtTime(this.bgmGain.gain.value, this.ctx.currentTime);
+                        this.bgmGain.gain.linearRampToValueAtTime(0.03, this.ctx.currentTime + 0.1);
+                    }
+                    document.getElementById('icon-audio-on').classList.remove('hidden');
+                    document.getElementById('icon-audio-off').classList.add('hidden');
+                }
+            }
+
+            playTone(freq, type, duration, vol = 0.1) {
+                if (this.isMuted || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            playNoise(duration, vol = 0.1, type = 'high') {
+                if (this.isMuted || !this.ctx) return;
+                const bufferSize = this.ctx.sampleRate * duration;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = type === 'high' ? 'highpass' : 'lowpass';
+                filter.frequency.value = type === 'high' ? 1000 : 400;
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }
+
+            sfxDrag() { this.playTone(400, 'sine', 0.1, 0.05); }
+            sfxDrop() { this.playTone(200, 'sine', 0.15, 0.1); }
+            sfxClick() { this.playTone(600, 'sine', 0.1, 0.05); }
+            sfxError() { 
+                this.playTone(150, 'sawtooth', 0.2, 0.05); 
+                setTimeout(() => this.playTone(100, 'sawtooth', 0.3, 0.05), 100);
+            }
+            sfxFreeze() {
+                this.playTone(800, 'triangle', 0.5, 0.1);
+                this.playTone(1200, 'sine', 0.3, 0.1);
+                this.playNoise(0.5, 0.1, 'high');
+            }
+            sfxSplash() {
+                this.playTone(300, 'sine', 0.3, 0.1);
+                setTimeout(() => this.playTone(200, 'sine', 0.4, 0.1), 100);
+                this.playNoise(0.4, 0.1, 'low');
+            }
+            sfxWind() {
+                this.playNoise(1.5, 0.15, 'low');
+                // wind whistle
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(500, this.ctx.currentTime + 0.7);
+                osc.frequency.linearRampToValueAtTime(200, this.ctx.currentTime + 1.5);
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 0.5);
+                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1.5);
+                if(!this.isMuted) {
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 1.5);
+                }
+            }
+
+            startBGM() {
+                if (this.isPlayingBGM || !this.ctx) return;
+                this.isPlayingBGM = true;
+                
+                this.bgmGain = this.ctx.createGain();
+                this.bgmGain.gain.value = this.isMuted ? 0 : 0.03;
+                this.bgmGain.connect(this.ctx.destination);
+
+                const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 329.63]; // C E G C G E
+                let step = 0;
+
+                const playNextNote = () => {
+                    if (!this.isPlayingBGM) return;
+                    const osc = this.ctx.createOscillator();
+                    const noteGain = this.ctx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.value = notes[step];
+                    
+                    noteGain.gain.setValueAtTime(1, this.ctx.currentTime);
+                    noteGain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                    
+                    osc.connect(noteGain);
+                    noteGain.connect(this.bgmGain);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.5);
+
+                    step = (step + 1) % notes.length;
+                };
+
+                this.bgmInterval = setInterval(playNextNote, 600);
+            }
+        }
+
+        const audio = new AudioSystem();
+
+        /**
+         * ==========================================
+         * GAME STATE & LOGIC
+         * ==========================================
+         */
+        const GRID_SIZE = 6;
+        const state = {
+            chars: {
+                dad: { pos: null, el: null },
+                mom: { pos: null, el: null },
+                boy: { pos: null, el: null },
+                girl: { pos: null, el: null }
+            },
+            grid: [], // 6x6 array storing char ids
+            currentState: 'wait' // wait, solid, liquid, gas
+        };
+
+        const dom = {
+            gridContainer: document.getElementById('grid-container'),
+            roster: document.getElementById('roster'),
+            stateTitle: document.getElementById('state-title'),
+            stateDesc: document.getElementById('state-desc'),
+            stateIcon: document.getElementById('state-icon'),
+            app: document.body
+        };
+
+        // Initialize Grid Array
+        for(let y=0; y<GRID_SIZE; y++) {
+            state.grid[y] = new Array(GRID_SIZE).fill(null);
+        }
+
+        function isInsideHouse(x, y) {
+            if (y === 1 && (x === 2 || x === 3)) return true; // Area Loteng / Atap
+            if (y >= 2 && y <= 4 && x >= 1 && x <= 4) return true; // Ruang utama rumah
+            return false;
+        }
+
+        function initDOM() {
+            // Build Grid DOM
+            dom.gridContainer.innerHTML = '';
+            
+            // Tambahkan Gambar Latar Belakang Rumah Kartun (SVG)
+            const houseBg = document.createElement('div');
+            houseBg.className = 'absolute inset-0 z-0 pointer-events-none';
+            houseBg.innerHTML = `
+                <svg width="100%" height="100%" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet">
+                    <!-- Definitions for patterns -->
+                    <defs>
+                        <pattern id="polka" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+                            <circle cx="20" cy="20" r="4" fill="#fde68a" opacity="0.6"/>
+                        </pattern>
+                        <linearGradient id="windowGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#bae6fd" />
+                            <stop offset="100%" stop-color="#38bdf8" />
+                        </linearGradient>
+                    </defs>
+
+                    <!-- Sky & Sun Elements -->
+                    <circle cx="80" cy="80" r="45" fill="#fef08a" stroke="#facc15" stroke-width="6"/>
+                    <!-- Sun rays -->
+                    <line x1="80" y1="15" x2="80" y2="5" stroke="#facc15" stroke-width="8" stroke-linecap="round"/>
+                    <line x1="80" y1="145" x2="80" y2="155" stroke="#facc15" stroke-width="8" stroke-linecap="round"/>
+                    <line x1="15" y1="80" x2="5" y2="80" stroke="#facc15" stroke-width="8" stroke-linecap="round"/>
+                    <line x1="145" y1="80" x2="155" y2="80" stroke="#facc15" stroke-width="8" stroke-linecap="round"/>
+                    <line x1="34" y1="34" x2="25" y2="25" stroke="#facc15" stroke-width="8" stroke-linecap="round"/>
+                    <line x1="126" y1="126" x2="135" y2="135" stroke="#facc15" stroke-width="8" stroke-linecap="round"/>
+                    <line x1="126" y1="34" x2="135" y2="25" stroke="#facc15" stroke-width="8" stroke-linecap="round"/>
+                    <line x1="34" y1="126" x2="25" y2="135" stroke="#facc15" stroke-width="8" stroke-linecap="round"/>
+
+                    <!-- Clouds -->
+                    <path d="M 450 90 Q 450 65 480 65 Q 510 65 520 85 Q 550 85 550 110 Q 550 135 520 135 L 450 135 Q 420 135 420 110 Q 420 90 450 90 Z" fill="#ffffff" opacity="0.9"/>
+                    
+                    <!-- Birds -->
+                    <path d="M 200 60 Q 210 50 220 60 Q 230 50 240 60 Q 220 70 200 60" fill="none" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+                    <path d="M 260 80 Q 265 75 270 80 Q 275 75 280 80 Q 270 85 260 80" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round"/>
+
+                    <!-- Chimney & Smoke -->
+                    <path d="M 425 130 L 425 40 L 465 40 L 465 170 Z" fill="#ea580c" stroke="#9a3412" stroke-width="6" stroke-linejoin="round"/>
+                    <rect x="415" y="30" width="80" height="15" rx="5" fill="#9a3412"/>
+                    <!-- Smoke Bubbles -->
+                    <circle cx="440" cy="15" r="12" fill="#ffffff" opacity="0.9"/>
+                    <circle cx="460" cy="-5" r="18" fill="#ffffff" opacity="0.8"/>
+                    <circle cx="430" cy="-35" r="25" fill="#ffffff" opacity="0.6"/>
+
+                    <!-- Base shadow/glow -->
+                    <rect x="96" y="196" width="408" height="308" rx="24" fill="#fcd34d" opacity="0.5"/>
+                    
+                    <!-- Main Walls -->
+                    <rect x="100" y="200" width="400" height="300" rx="20" fill="#fef3c7" stroke="#f59e0b" stroke-width="8"/>
+                    <!-- Wallpaper pattern -->
+                    <rect x="104" y="204" width="392" height="292" rx="16" fill="url(#polka)"/>
+                    
+                    <!-- Attic Wall -->
+                    <rect x="200" y="100" width="200" height="120" fill="#fef3c7" stroke="#f59e0b" stroke-width="8"/>
+                    <!-- Attic Wallpaper -->
+                    <rect x="204" y="104" width="192" height="112" fill="url(#polka)"/>
+                    <!-- Remove intersection line -->
+                    <rect x="204" y="196" width="192" height="10" fill="#fef3c7"/>
+                    <rect x="204" y="196" width="192" height="10" fill="url(#polka)"/>
+                    
+                    <!-- Big Roof / Atap -->
+                    <path d="M 300 15 L 540 205 L 485 240 L 300 85 L 115 240 L 60 205 Z" fill="#f43f5e" stroke="#be123c" stroke-width="12" stroke-linejoin="round"/>
+                    <!-- Roof Highlight -->
+                    <path d="M 300 35 L 500 205 M 300 35 L 100 205" fill="none" stroke="#fb7185" stroke-width="8" stroke-linecap="round"/>
+                    
+                    <!-- Eaves detail (Bagian dalam atap) -->
+                    <path d="M 60 205 L 115 240 L 300 85 L 485 240 L 540 205" fill="none" stroke="#fda4af" stroke-width="6" stroke-linejoin="round"/>
+
+                    <!-- Door / Pintu -->
+                    <path d="M 250 500 L 250 370 A 50 50 0 0 1 350 370 L 350 500 Z" fill="#14b8a6" stroke="#0f766e" stroke-width="8"/>
+                    <!-- Door Details -->
+                    <path d="M 265 385 A 35 35 0 0 1 335 385 L 335 485 L 265 485 Z" fill="#0d9488" stroke="#0f766e" stroke-width="4"/>
+                    <circle cx="330" cy="430" r="7" fill="#fbbf24" stroke="#d97706" stroke-width="3"/>
+                    <circle cx="300" cy="360" r="16" fill="url(#windowGlow)" stroke="#0f766e" stroke-width="6"/>
+
+                    <!-- Windows / Jendela Bawah -->
+                    <!-- Window Left -->
+                    <rect x="120" y="250" width="90" height="90" rx="16" fill="url(#windowGlow)" stroke="#ffffff" stroke-width="10"/>
+                    <rect x="120" y="250" width="90" height="90" rx="16" fill="none" stroke="#0ea5e9" stroke-width="4"/>
+                    <line x1="120" y1="295" x2="210" y2="295" stroke="#ffffff" stroke-width="8"/>
+                    <line x1="165" y1="250" x2="165" y2="340" stroke="#ffffff" stroke-width="8"/>
+                    <!-- Flower Box Left -->
+                    <rect x="110" y="345" width="110" height="25" rx="8" fill="#b45309" stroke="#78350f" stroke-width="4"/>
+                    <circle cx="125" cy="335" r="10" fill="#ec4899"/>
+                    <circle cx="145" cy="335" r="12" fill="#facc15"/>
+                    <circle cx="165" cy="335" r="10" fill="#a855f7"/>
+                    <circle cx="185" cy="335" r="12" fill="#ef4444"/>
+
+                    <!-- Window Right -->
+                    <rect x="390" y="250" width="90" height="90" rx="16" fill="url(#windowGlow)" stroke="#ffffff" stroke-width="10"/>
+                    <rect x="390" y="250" width="90" height="90" rx="16" fill="none" stroke="#0ea5e9" stroke-width="4"/>
+                    <line x1="390" y1="295" x2="480" y2="295" stroke="#ffffff" stroke-width="8"/>
+                    <line x1="435" y1="250" x2="435" y2="340" stroke="#ffffff" stroke-width="8"/>
+                    <!-- Flower Box Right -->
+                    <rect x="380" y="345" width="110" height="25" rx="8" fill="#b45309" stroke="#78350f" stroke-width="4"/>
+                    <circle cx="395" cy="335" r="12" fill="#facc15"/>
+                    <circle cx="415" cy="335" r="10" fill="#ec4899"/>
+                    <circle cx="435" cy="335" r="12" fill="#a855f7"/>
+                    <circle cx="455" cy="335" r="10" fill="#ef4444"/>
+
+                    <!-- Attic Window / Jendela Loteng -->
+                    <circle cx="300" cy="150" r="32" fill="url(#windowGlow)" stroke="#ffffff" stroke-width="10"/>
+                    <circle cx="300" cy="150" r="32" fill="none" stroke="#0ea5e9" stroke-width="4"/>
+                    <line x1="268" y1="150" x2="332" y2="150" stroke="#ffffff" stroke-width="8"/>
+                    <line x1="300" y1="118" x2="300" y2="182" stroke="#ffffff" stroke-width="8"/>
+                    
+                    <!-- Bushes / Semak-semak -->
+                    <!-- Left Bushes -->
+                    <path d="M 30 510 A 35 35 0 0 1 100 480 A 45 45 0 0 1 170 510 Z" fill="#22c55e" stroke="#166534" stroke-width="6"/>
+                    <!-- Right Bushes -->
+                    <path d="M 430 510 A 45 45 0 0 1 500 480 A 35 35 0 0 1 570 510 Z" fill="#22c55e" stroke="#166534" stroke-width="6"/>
+                    
+                    <!-- Grass Base / Rumput -->
+                    <path d="M -20 500 Q 150 480 300 500 T 620 500 L 620 620 L -20 620 Z" fill="#4ade80" stroke="#16a34a" stroke-width="8"/>
+                    
+                    <!-- Grass Details (Little tufts) -->
+                    <path d="M 90 530 L 95 510 L 100 530" fill="none" stroke="#16a34a" stroke-width="5" stroke-linecap="round"/>
+                    <path d="M 100 530 L 105 520 L 110 530" fill="none" stroke="#16a34a" stroke-width="5" stroke-linecap="round"/>
+                    
+                    <path d="M 490 550 L 495 530 L 500 550" fill="none" stroke="#16a34a" stroke-width="5" stroke-linecap="round"/>
+                    <path d="M 500 550 L 505 540 L 510 550" fill="none" stroke="#16a34a" stroke-width="5" stroke-linecap="round"/>
+                    
+                    <!-- Small flowers on grass -->
+                    <circle cx="160" cy="550" r="5" fill="#ffffff"/><circle cx="160" cy="550" r="2.5" fill="#facc15"/>
+                    <circle cx="210" cy="570" r="6" fill="#fecaca"/><circle cx="210" cy="570" r="3" fill="#facc15"/>
+                    <circle cx="410" cy="540" r="5" fill="#ffffff"/><circle cx="410" cy="540" r="2.5" fill="#facc15"/>
+                    <circle cx="370" cy="580" r="6" fill="#fef08a"/><circle cx="370" cy="580" r="3" fill="#ea580c"/>
+                </svg>
+            `;
+            dom.gridContainer.appendChild(houseBg);
+
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = `grid-cell ${isInsideHouse(x, y) ? 'cell-house' : 'cell-outside'}`;
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    dom.gridContainer.appendChild(cell);
+                }
+            }
+
+            // Build Roster & Characters
+            dom.roster.innerHTML = '';
+            charsDef.forEach(c => {
+                const charEl = document.createElement('div');
+                charEl.className = 'character';
+                charEl.id = `char-${c.id}`;
+                charEl.dataset.id = c.id;
+                charEl.innerHTML = c.svg;
+                charEl.title = c.name;
+                
+                // Add touch and mouse event listeners for drag
+                setupDraggable(charEl);
+
+                state.chars[c.id].el = charEl;
+                state.chars[c.id].pos = null; // null means in roster
+                
+                // Initial placement in roster
+                const slot = document.createElement('div');
+                slot.className = 'w-1/4 aspect-square flex items-center justify-center relative p-1';
+                slot.appendChild(charEl);
+                dom.roster.appendChild(slot);
+            });
+        }
+
+        /**
+         * ==========================================
+         * DRAG & DROP / INTERACTION LOGIC
+         * ==========================================
+         */
+        let dragState = {
+            el: null,
+            startX: 0, startY: 0,
+            offsetX: 0, offsetY: 0,
+            originalParent: null
+        };
+        let selectedForTap = null; // For tap-to-select fallback
+
+        function setupDraggable(el) {
+            // Mouse events
+            el.addEventListener('mousedown', handleDragStart, {passive: false});
+            // Touch events
+            el.addEventListener('touchstart', handleDragStart, {passive: false});
+            // Click/Tap fallback
+            el.addEventListener('click', handleCharClick);
+        }
+
+        function handleDragStart(e) {
+            // Ignore right click
+            if (e.type === 'mousedown' && e.button !== 0) return;
+            e.preventDefault();
+            audio.init();
+
+            document.body.classList.add('is-interacting'); // Tampilkan semua sel kosong
+
+            if (selectedForTap) {
+                selectedForTap.classList.remove('ring-4', 'ring-sky-400', 'rounded-full');
+                selectedForTap = null;
+            }
+
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+
+            dragState.el = e.currentTarget;
+            dragState.originalParent = dragState.el.parentElement;
+            
+            // Get dimensions for offset
+            const rect = dragState.el.getBoundingClientRect();
+            dragState.offsetX = clientX - rect.left;
+            dragState.offsetY = clientY - rect.top;
+
+            // Prepare element for visual dragging
+            const w = rect.width;
+            const h = rect.height;
+            
+            // Move out of flow temporarily
+            document.body.appendChild(dragState.el);
+            dragState.el.classList.add('dragging');
+            dragState.el.style.width = `${w}px`;
+            dragState.el.style.height = `${h}px`;
+            
+            updateDragPos(clientX, clientY);
+
+            audio.sfxDrag();
+            dom.app.classList.remove('state-solid', 'state-liquid', 'state-gas');
+
+            // Add move and end listeners to window
+            window.addEventListener('mousemove', handleDragMove, {passive: false});
+            window.addEventListener('mouseup', handleDragEnd);
+            window.addEventListener('touchmove', handleDragMove, {passive: false});
+            window.addEventListener('touchend', handleDragEnd);
+            window.addEventListener('touchcancel', handleDragEnd);
+        }
+
+        function handleDragMove(e) {
+            if (!dragState.el) return;
+            e.preventDefault();
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+            updateDragPos(clientX, clientY);
+            
+            // Highlight drop target
+            document.querySelectorAll('.grid-cell.highlight').forEach(el => el.classList.remove('highlight'));
+            dragState.el.style.pointerEvents = 'none'; // so elementFromPoint works
+            const target = document.elementFromPoint(clientX, clientY);
+            
+            let hoverCell = target ? target.closest('.grid-cell') : null;
+            const isRoster = target ? target.closest('#roster') : null;
+            
+            // Abaikan sel jika sudah terisi oleh karakter lain
+            if (hoverCell && hoverCell.querySelector('.character')) {
+                hoverCell = null;
+            }
+
+            // Magnet pencarian sel kosong terdekat tanpa batas radius yang ketat
+            if (!hoverCell && !isRoster) {
+                let minDist = Infinity;
+                document.querySelectorAll('.grid-cell').forEach(cell => {
+                    if (!cell.querySelector('.character')) {
+                        const rect = cell.getBoundingClientRect();
+                        const cx = rect.left + rect.width/2;
+                        const cy = rect.top + rect.height/2;
+                        const dist = Math.hypot(cx - clientX, cy - clientY);
+                        // Radius sangat besar, jadi akan selalu menemukan sel terdekat
+                        if(dist < minDist && dist < 2000) {
+                            minDist = dist;
+                            hoverCell = cell;
+                        }
+                    }
+                });
+            }
+
+            if (hoverCell) {
+                hoverCell.classList.add('highlight');
+            }
+        }
+
+        function updateDragPos(x, y) {
+            if (!dragState.el) return;
+            dragState.el.style.left = `${x - dragState.offsetX}px`;
+            dragState.el.style.top = `${y - dragState.offsetY}px`;
+        }
+
+        function findClosestTarget(dragEl) {
+            const rect = dragEl.getBoundingClientRect();
+            // Gunakan titik tengah karakter untuk akurasi presisi tinggi
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+
+            // Cek apakah pemain ingin mengembalikan ke kotak awal (roster)
+            const rosterRect = dom.roster.getBoundingClientRect();
+            if (cx >= rosterRect.left - 20 && cx <= rosterRect.right + 20 && 
+                cy >= rosterRect.top - 20 && cy <= rosterRect.bottom + 20) {
+                return { type: 'roster' };
+            }
+
+            let minDist = Infinity;
+            let bestCell = null;
+
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                // Hanya hitung sel yang kosong
+                if (!cell.querySelector('.character')) {
+                    const cellRect = cell.getBoundingClientRect();
+                    const cellCX = cellRect.left + cellRect.width / 2;
+                    const cellCY = cellRect.top + cellRect.height / 2;
+                    // Jarak antara titik tengah karakter dan titik tengah kotak
+                    const dist = Math.hypot(cellCX - cx, cellCY - cy);
+                    
+                    if (dist < minDist) {
+                        minDist = dist;
+                        bestCell = cell;
+                    }
+                }
+            });
+
+            return { type: bestCell ? 'cell' : 'none', cell: bestCell };
+        }
+
+        function handleDragMove(e) {
+            if (!dragState.el) return;
+            e.preventDefault();
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+            updateDragPos(clientX, clientY);
+            
+            const targetInfo = findClosestTarget(dragState.el);
+            
+            // Highlight drop target secara presisi sesuai titik tengah
+            document.querySelectorAll('.grid-cell.highlight').forEach(el => el.classList.remove('highlight'));
+            if (targetInfo.type === 'cell' && targetInfo.cell) {
+                targetInfo.cell.classList.add('highlight');
+            }
+        }
+
+        function handleDragEnd(e) {
+            if (!dragState.el) return;
+            
+            document.body.classList.remove('is-interacting'); // Sembunyikan indikator sel kosong
+            
+            window.removeEventListener('mousemove', handleDragMove);
+            window.removeEventListener('mouseup', handleDragEnd);
+            window.removeEventListener('touchmove', handleDragMove);
+            window.removeEventListener('touchend', handleDragEnd);
+            window.removeEventListener('touchcancel', handleDragEnd);
+
+            // 1. Hitung target berdasarkan posisi visual SEBELUM style posisi di-reset
+            const targetInfo = findClosestTarget(dragState.el);
+            document.querySelectorAll('.grid-cell.highlight').forEach(el => el.classList.remove('highlight'));
+
+            // 2. Remove visual drag state
+            dragState.el.classList.remove('dragging');
+            dragState.el.style.position = '';
+            dragState.el.style.left = '';
+            dragState.el.style.top = '';
+            dragState.el.style.width = '80%';
+            dragState.el.style.height = '80%';
+            dragState.el.style.pointerEvents = 'auto'; // Kembalikan interaksi pointer
+            
+            const charId = dragState.el.dataset.id;
+            
+            if (targetInfo.type === 'cell' && targetInfo.cell) {
+                placeCharacterInCell(charId, targetInfo.cell);
+            } else {
+                returnCharacterToRoster(charId);
+            }
+
+            dragState.el = null;
+            dragState.originalParent = null;
+            
+            evaluateGameState();
+        }
+
+        // Tap to select / tap to place logic (fallback for touch/accessibility)
+        function handleCharClick(e) {
+            if (e.type === 'click' && dragState.el) return; // Being dragged
+            e.stopPropagation();
+            audio.init();
+
+            if (selectedForTap === this) {
+                // deselect
+                this.classList.remove('ring-4', 'ring-sky-400', 'rounded-full');
+                selectedForTap = null;
+                document.body.classList.remove('is-interacting');
+            } else {
+                if (selectedForTap) selectedForTap.classList.remove('ring-4', 'ring-sky-400', 'rounded-full');
+                selectedForTap = this;
+                this.classList.add('ring-4', 'ring-sky-400', 'rounded-full');
+                document.body.classList.add('is-interacting');
+                audio.sfxClick();
+            }
+        }
+
+        // Add listener to grid container for tap-to-place
+        dom.gridContainer.addEventListener('click', (e) => {
+            const cell = e.target.closest('.grid-cell');
+            // Pastikan sel tersebut benar-benar kosong dari elemen karakter
+            if (cell && selectedForTap && !cell.querySelector('.character')) {
+                const charId = selectedForTap.dataset.id;
+                selectedForTap.classList.remove('ring-4', 'ring-sky-400', 'rounded-full');
+                document.body.classList.remove('is-interacting');
+                placeCharacterInCell(charId, cell);
+                selectedForTap = null;
+                evaluateGameState();
+            }
+        });
+
+        // Click roster to return tap-selected char
+        dom.roster.addEventListener('click', (e) => {
+            if (selectedForTap && e.target === dom.roster) {
+                const charId = selectedForTap.dataset.id;
+                selectedForTap.classList.remove('ring-4', 'ring-sky-400', 'rounded-full');
+                document.body.classList.remove('is-interacting');
+                returnCharacterToRoster(charId);
+                selectedForTap = null;
+                evaluateGameState();
+            }
+        });
+
+
+        /**
+         * ==========================================
+         * STATE MANAGEMENT & VALIDATION
+         * ==========================================
+         */
+        function placeCharacterInCell(charId, cellEl) {
+            const x = parseInt(cellEl.dataset.x);
+            const y = parseInt(cellEl.dataset.y);
+            
+            // Remove from old pos in grid array if exists
+            const oldPos = state.chars[charId].pos;
+            if (oldPos) {
+                state.grid[oldPos.y][oldPos.x] = null;
+            }
+
+            // Update new pos
+            state.chars[charId].pos = {x, y};
+            state.grid[y][x] = charId;
+            cellEl.appendChild(state.chars[charId].el);
+            audio.sfxDrop();
+        }
+
+        function returnCharacterToRoster(charId) {
+            const oldPos = state.chars[charId].pos;
+            if (oldPos) {
+                state.grid[oldPos.y][oldPos.x] = null;
+            }
+            state.chars[charId].pos = null;
+            
+            // Find empty slot in roster
+            const slots = dom.roster.children;
+            for(let i=0; i<slots.length; i++) {
+                if (slots[i].children.length === 0) {
+                    slots[i].appendChild(state.chars[charId].el);
+                    break;
+                }
+            }
+            audio.sfxDrop();
+        }
+
+        function resetAll() {
+            charsDef.forEach(c => returnCharacterToRoster(c.id));
+            evaluateGameState();
+            audio.sfxClick();
+        }
+
+        function randomPos() {
+            // Collect all empty cells in the entire board
+            let allCells = [];
+            for(let y=0; y<GRID_SIZE; y++){
+                for(let x=0; x<GRID_SIZE; x++){
+                    allCells.push(document.querySelector(`.grid-cell[data-x="${x}"][data-y="${y}"]`));
+                }
+            }
+
+            // Move all back to roster first
+            charsDef.forEach(c => returnCharacterToRoster(c.id));
+
+            // Acak posisi semua sel dan ambil 4 pertama untuk menempatkan karakter
+            allCells = allCells.sort(() => 0.5 - Math.random());
+            const shuffledChars = [...charsDef].sort(() => 0.5 - Math.random());
+
+            for(let i=0; i<4; i++) {
+                placeCharacterInCell(shuffledChars[i].id, allCells[i]);
+            }
+            
+            evaluateGameState();
+            audio.sfxClick();
+        }
+
+        // Logic core
+        function evaluateGameState() {
+            // Remove previous classes
+            dom.app.classList.remove('state-solid', 'state-liquid', 'state-gas');
+
+            const activeChars = Object.values(state.chars).filter(c => c.pos !== null);
+            
+            // If not all 4 deployed, waiting state
+            if (activeChars.length < 4) {
+                setUIState('wait');
+                return;
+            }
+
+            // Check positions
+            let countInHouse = 0;
+            let countOutHouse = 0;
+            const positions = [];
+
+            activeChars.forEach(c => {
+                positions.push(c.pos);
+                if (isInsideHouse(c.pos.x, c.pos.y)) countInHouse++;
+                else countOutHouse++;
+            });
+
+            // Calculate connected components
+            const maxGroup = getMaxConnectedGroupSize(positions);
+
+            let newState = 'wait';
+
+            // Rule 1: Solid - All 4 inside, max group = 4
+            if (countInHouse === 4 && maxGroup === 4) {
+                newState = 'solid';
+            }
+            // Rule 2: Liquid - All 4 inside, max group < 4
+            else if (countInHouse === 4 && maxGroup < 4) {
+                newState = 'liquid';
+            }
+            // Rule 3: Gas - All 4 outside, max group = 1 (no connections)
+            else if (countOutHouse === 4 && maxGroup === 1) {
+                newState = 'gas';
+            }
+
+            setUIState(newState);
+        }
+
+        function getMaxConnectedGroupSize(positions) {
+            // Basic DFS to find largest connected component among the 4 positions
+            const visited = new Set();
+            let maxCount = 0;
+
+            for (let i = 0; i < positions.length; i++) {
+                if (!visited.has(i)) {
+                    let count = 0;
+                    const stack = [i];
+                    visited.add(i);
+
+                    while (stack.length > 0) {
+                        const currIdx = stack.pop();
+                        count++;
+                        const currPos = positions[currIdx];
+
+                        // check neighbors
+                        for (let j = 0; j < positions.length; j++) {
+                            if (!visited.has(j)) {
+                                const nPos = positions[j];
+                                const dist = Math.abs(currPos.x - nPos.x) + Math.abs(currPos.y - nPos.y);
+                                if (dist === 1) { // adjacent horizontally or vertically
+                                    visited.add(j);
+                                    stack.push(j);
+                                }
+                            }
+                        }
+                    }
+                    if (count > maxCount) maxCount = count;
+                }
+            }
+            return maxCount;
+        }
+
+        /**
+         * ==========================================
+         * UI UPDATES & EFFECTS
+         * ==========================================
+         */
+        function setUIState(newState) {
+            if (state.currentState === newState) return; // No change
+            state.currentState = newState;
+            
+            // Clean up old effects
+            document.querySelectorAll('.particle').forEach(el => el.remove());
+            const infoPanel = document.getElementById('info-panel');
+
+            // Apply new state
+            if (newState === 'wait') {
+                dom.stateTitle.textContent = "Menunggu...";
+                dom.stateTitle.className = "font-title text-xl text-slate-700 font-bold";
+                dom.stateIcon.textContent = "🤔";
+                dom.stateIcon.className = "w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl shadow-inner transition-colors duration-500";
+                dom.stateDesc.innerHTML = `
+                    Susun Ayah, Ibu, Kakak, dan Adik di area simulasi!<br><br>
+                    - <b>Padat (Es)</b>: Di dalam rumah, saling menempel.<br>
+                    - <b>Cair (Air)</b>: Di dalam rumah, terpisah.<br>
+                    - <b>Gas (Uap)</b>: Di luar rumah, terpisah.
+                `;
+                infoPanel.className = "glass-panel rounded-2xl p-5 flex-1 flex flex-col transition-all duration-500 bg-white";
+            } 
+            else if (newState === 'solid') {
+                dom.app.classList.add('state-solid');
+                dom.stateTitle.textContent = "Zat Padat (Es)";
+                dom.stateTitle.className = "font-title text-xl text-sky-700 font-bold";
+                dom.stateIcon.textContent = "🧊";
+                dom.stateIcon.className = "w-12 h-12 rounded-xl bg-sky-100 flex items-center justify-center text-2xl shadow-inner transition-colors duration-500 border border-sky-300";
+                dom.stateDesc.innerHTML = `
+                    <b>Hebat!</b> Keluarga molekul berkumpul sangat rapat. Ini membentuk benda padat (Es).<br><br>
+                    Pada zat padat, partikel tersusun teratur, sangat rapat, dan ikatannya sangat kuat sehingga mereka hanya bisa <b>bergetar</b> di tempatnya. Bentuk dan volumenya tetap.<br><br>
+                    <i>*Perubahan wujud terjadi karena perubahan energi/panas, bukan karena jenis molekulnya berubah!</i>
+                `;
+                infoPanel.className = "glass-panel rounded-2xl p-5 flex-1 flex flex-col transition-all duration-500 bg-sky-50 border-sky-200";
+                audio.sfxFreeze();
+                spawnParticles('snow');
+            }
+            else if (newState === 'liquid') {
+                dom.app.classList.add('state-liquid');
+                dom.stateTitle.textContent = "Zat Cair (Air)";
+                dom.stateTitle.className = "font-title text-xl text-blue-700 font-bold";
+                dom.stateIcon.textContent = "💧";
+                dom.stateIcon.className = "w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-2xl shadow-inner transition-colors duration-500 border border-blue-300";
+                dom.stateDesc.innerHTML = `
+                    <b>Bagus!</b> Keluarga molekul berdekatan tapi mulai terpisah dan bebas bergeser. Ini membentuk zat cair (Air).<br><br>
+                    Energi panas bertambah. Ikatan partikel merenggang sehingga mereka dapat <b>bergerak/bergeser</b> melewati satu sama lain. Zat cair mengikuti bentuk wadahnya (rumahnya).
+                `;
+                infoPanel.className = "glass-panel rounded-2xl p-5 flex-1 flex flex-col transition-all duration-500 bg-blue-50 border-blue-200";
+                audio.sfxSplash();
+                spawnParticles('water');
+            }
+            else if (newState === 'gas') {
+                dom.app.classList.add('state-gas');
+                dom.stateTitle.textContent = "Zat Gas (Uap)";
+                dom.stateTitle.className = "font-title text-xl text-slate-600 font-bold";
+                dom.stateIcon.textContent = "☁️";
+                dom.stateIcon.className = "w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl shadow-inner transition-colors duration-500 border border-slate-300";
+                dom.stateDesc.innerHTML = `
+                    <b>Luar Biasa!</b> Keluarga molekul menyebar keluar dan saling menjauh. Ini membentuk zat gas (Uap).<br><br>
+                    Energi sangat tinggi! Ikatan antar partikel terlepas. Partikel gas berjauhan dan <b>bergerak sangat bebas dan cepat</b> ke segala arah memenuhi ruang.
+                `;
+                infoPanel.className = "glass-panel rounded-2xl p-5 flex-1 flex flex-col transition-all duration-500 bg-slate-50 border-slate-200";
+                audio.sfxWind();
+                spawnParticles('steam');
+            }
+        }
+
+        function spawnParticles(type) {
+            const container = dom.gridContainer;
+            const num = type === 'steam' ? 15 : (type === 'snow' ? 20 : 12);
+            
+            for (let i = 0; i < num; i++) {
+                setTimeout(() => {
+                    if (state.currentState === 'wait') return; // Stop if state changed quickly
+                    const p = document.createElement('div');
+                    p.className = 'particle';
+                    
+                    // Random pos within container
+                    const left = Math.random() * 100;
+                    const top = Math.random() * 100;
+                    p.style.left = `${left}%`;
+                    p.style.top = `${top}%`;
+
+                    if (type === 'snow') {
+                        p.style.width = p.style.height = `${Math.random() * 6 + 4}px`;
+                        p.style.backgroundColor = '#ffffff';
+                        p.style.boxShadow = '0 0 5px #7dd3fc';
+                        p.style.animation = `snowFall ${Math.random() * 1.5 + 1}s linear forwards`;
+                    } else if (type === 'water') {
+                        p.style.width = p.style.height = `${Math.random() * 8 + 6}px`;
+                        p.style.backgroundColor = '#38bdf8';
+                        p.style.borderRadius = '0 50% 50% 50%';
+                        p.style.transform = 'rotate(45deg)';
+                        p.style.animation = `splashDown ${Math.random() * 1 + 0.5}s ease-in forwards`;
+                    } else if (type === 'steam') {
+                        p.style.width = p.style.height = `${Math.random() * 20 + 10}px`;
+                        p.style.backgroundColor = 'rgba(255,255,255,0.7)';
+                        p.style.filter = 'blur(4px)';
+                        p.style.animation = `floatUp ${Math.random() * 2 + 1.5}s ease-out forwards`;
+                    }
+                    
+                    container.appendChild(p);
+
+                    // cleanup
+                    p.addEventListener('animationend', () => p.remove());
+
+                }, i * 150); // Stagger spawn
+            }
+        }
+
+        /**
+         * ==========================================
+         * INITIALIZATION & EVENT LISTENERS
+         * ==========================================
+         */
+        window.addEventListener('DOMContentLoaded', () => {
+            initDOM();
+
+            // Button Events
+            document.getElementById('btn-reset').addEventListener('click', resetAll);
+            document.getElementById('btn-random').addEventListener('click', randomPos);
+            
+            document.getElementById('btn-audio').addEventListener('click', () => {
+                audio.toggleMute();
+                audio.sfxClick();
+            });
+
+            // Modals
+            const devModal = document.getElementById('dev-modal');
+            const helpModal = document.getElementById('help-modal');
+
+            const openModal = (modal) => {
+                modal.classList.remove('hidden');
+                // trigger reflow
+                void modal.offsetWidth;
+                modal.classList.remove('opacity-0');
+                modal.children[0].classList.remove('scale-95');
+                audio.sfxClick();
+            };
+
+            const closeModal = (modal) => {
+                modal.classList.add('opacity-0');
+                modal.children[0].classList.add('scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+                audio.sfxClick();
+            };
+
+            document.getElementById('btn-dev').addEventListener('click', () => openModal(devModal));
+            document.getElementById('btn-help').addEventListener('click', () => openModal(helpModal));
+
+            document.querySelectorAll('.btn-close-modal').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const modal = e.target.closest('.modal-overlay');
+                    closeModal(modal);
+                });
+            });
+
+            // Start Screen
+            document.getElementById('btn-start-game').addEventListener('click', () => {
+                audio.init();
+                audio.startBGM();
+                const startScreen = document.getElementById('start-screen');
+                startScreen.style.opacity = '0';
+                startScreen.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => startScreen.remove(), 500);
+            });
+
+            // Fullscreen
+            document.getElementById('btn-fullscreen').addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.log(`Error attempting to enable full-screen mode: ${err.message}`);
+                    });
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+                audio.sfxClick();
+            });
+        });
+
+    </script>
+</body>
+</html>
